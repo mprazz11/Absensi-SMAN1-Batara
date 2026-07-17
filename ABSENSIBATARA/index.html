@@ -1,0 +1,142 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Absensi SMAN 1 Bandar Mataram</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://unpkg.com/html5-qrcode"></script>
+    <style>
+        .bg-sekolah {
+            background-image: linear-gradient(rgba(15, 23, 42, 0.6), rgba(15, 23, 42, 0.6)), url('gedung.jpg');
+            background-size: cover;
+            background-position: center;
+            background-repeat: no-repeat;
+        }
+    </style>
+</head>
+<body class="bg-sekolah min-h-screen flex flex-col items-center justify-center p-4">
+
+    <div class="w-full max-w-md bg-white/95 backdrop-blur-sm rounded-2xl shadow-2xl p-6 border border-white/20">
+        
+        <div class="flex flex-col items-center mb-4">
+            <img src="logo.png" alt="Logo SMAN 1 Bandar Mataram" class="w-20 h-20 object-contain mb-3 drop-shadow-md">
+            <h1 class="text-xl font-bold text-center text-blue-900 tracking-wide">Absensi QR SMAN 1 Bandar Mataram</h1>
+        </div>
+        
+        <div class="flex gap-4 mb-6">
+            <label class="flex-1 text-center py-3 bg-blue-100 rounded-xl cursor-pointer border-2 border-blue-600" id="labelBerangkat">
+                <input type="radio" name="tipeAbsen" value="Berangkat" checked class="hidden" onclick="updateTipe('Berangkat')">
+                <span class="font-bold text-blue-800 text-sm">🌅 Berangkat</span>
+            </label>
+            <label class="flex-1 text-center py-3 bg-slate-100 rounded-xl cursor-pointer border-2 border-transparent" id="labelPulang">
+                <input type="radio" name="tipeAbsen" value="Pulang" class="hidden" onclick="updateTipe('Pulang')">
+                <span class="font-bold text-slate-600 text-sm">🎒 Pulang</span>
+            </label>
+        </div>
+
+        <div id="reader" class="overflow-hidden rounded-xl border-2 border-slate-200 mb-4 bg-slate-50 shadow-inner" style="width: 100%;"></div>
+
+        <div id="statusLoading" class="text-center p-4 rounded-xl font-bold bg-amber-100 text-amber-900 border border-amber-300 hidden mb-4 animate-pulse">
+            ⏳ Memproses absensi, mohon tunggu...
+        </div>
+
+        <div id="studentDetail" class="hidden border-2 rounded-xl p-5 mb-4 shadow-md transition-all duration-300">
+            <h2 class="text-center font-extrabold text-sm border-b pb-2 mb-3 tracking-wider text-slate-700">DETAIL ABSENSI</h2>
+            <div class="space-y-2 text-sm text-slate-800">
+                <div class="flex justify-between"><span class="text-slate-500 font-semibold">NIS:</span> <span id="viewNis" class="font-bold"></span></div>
+                <div class="flex justify-between"><span class="text-slate-500 font-semibold">Nama:</span> <span id="viewNama" class="font-bold text-right"></span></div>
+                <div class="flex justify-between"><span class="text-slate-500 font-semibold">Kelas:</span> <span id="viewKelas" class="font-bold"></span></div>
+                <div class="flex justify-between"><span class="text-slate-500 font-semibold">Waktu:</span> <span id="viewWaktu" class="font-bold"></span></div>
+                <div class="flex justify-between items-center"><span class="text-slate-500 font-semibold">Status:</span> <span id="viewStatus" class="px-3 py-1 rounded-full text-xs font-black uppercase"></span></div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // =========================================================================
+        // PENTING: Ganti dengan URL Google Apps Script Anda yang berakhiran /exec
+        // =========================================================================
+        const WEB_APP_URL = "https://script.google.com/macros/s/AKfycbwmX-isnOGEp5HhQx3gRZ1N5yjb_-1DDxqLtTPzYeiDP31_J1VIqoEE1rsmD-EX660t/exec"; 
+        
+        let tipeAbsen = "Berangkat";
+        let html5QrcodeScanner;
+
+        function updateTipe(tipe) {
+            tipeAbsen = tipe;
+            const bLabel = document.getElementById('labelBerangkat');
+            const pLabel = document.getElementById('labelPulang');
+            if(tipe === 'Berangkat') {
+                bLabel.className = "flex-1 text-center py-3 bg-blue-100 rounded-xl cursor-pointer border-2 border-blue-600";
+                pLabel.className = "flex-1 text-center py-3 bg-slate-100 rounded-xl cursor-pointer border-2 border-transparent";
+            } else {
+                pLabel.className = "flex-1 text-center py-3 bg-blue-100 rounded-xl cursor-pointer border-2 border-blue-600";
+                bLabel.className = "flex-1 text-center py-3 bg-slate-100 rounded-xl cursor-pointer border-2 border-transparent";
+            }
+        }
+
+        function tangkapResponGoogle(data) {
+            const oldScript = document.getElementById('jsonpScript');
+            if(oldScript) oldScript.remove();
+
+            document.getElementById('statusLoading').classList.add('hidden');
+            const detailDiv = document.getElementById('studentDetail');
+            
+            if (data.result === "success") {
+                document.getElementById('viewNis').innerText = data.nis;
+                document.getElementById('viewNama').innerText = data.nama;
+                document.getElementById('viewKelas').innerText = data.kelas;
+                document.getElementById('viewWaktu').innerText = `${data.tanggal} | ${data.waktu}`;
+                
+                const statusSpan = document.getElementById('viewStatus');
+                statusSpan.innerText = data.status;
+                
+                if (data.status === "Terlambat") {
+                    detailDiv.className = "border-2 border-red-500 bg-red-50 rounded-xl p-5 mb-4 shadow-inner";
+                    statusSpan.className = "px-3 py-1 rounded-full text-xs font-black uppercase bg-red-200 text-red-900";
+                } else {
+                    detailDiv.className = "border-2 border-green-500 bg-green-50 rounded-xl p-5 mb-4 shadow-inner";
+                    statusSpan.className = "px-3 py-1 rounded-full text-xs font-black uppercase bg-green-200 text-green-900";
+                }
+
+                detailDiv.classList.remove('hidden');
+                
+                setTimeout(() => {
+                    detailDiv.classList.add('hidden');
+                    startScanner();
+                }, 4000);
+            } else {
+                alert("Error dari Server: " + data.message);
+                startScanner();
+            }
+        }
+
+        function onScanSuccess(decodedText, decodedResult) {
+            html5QrcodeScanner.clear();
+            
+            document.getElementById('statusLoading').classList.remove('hidden');
+            document.getElementById('studentDetail').classList.add('hidden');
+
+            const srcUrl = `${WEB_APP_URL}?nis=${encodeURIComponent(decodedText)}&tipe=${tipeAbsen}&callback=tangkapResponGoogle`;
+            
+            const script = document.createElement('script');
+            script.src = srcUrl;
+            script.id = 'jsonpScript';
+            script.onerror = function() {
+                document.getElementById('statusLoading').classList.add('hidden');
+                alert("Koneksi gagal! Periksa koneksi internet atau URL script Anda.");
+                startScanner();
+            };
+            
+            document.body.appendChild(script);
+        }
+
+        function startScanner() {
+            html5QrcodeScanner = new Html5QrcodeScanner("reader", { fps: 15, qrbox: { width: 250, height: 250 } });
+            html5QrcodeScanner.render(onScanSuccess);
+        }
+
+        startScanner();
+    </script>
+</body>
+</html>
